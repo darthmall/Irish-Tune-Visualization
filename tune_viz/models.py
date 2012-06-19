@@ -37,7 +37,7 @@ class TuneDistance(models.Model):
 
 class Measure(models.Model):
     text = models.TextField(unique=True)
-    musicxml = models.TextField(unique=True, blank=True)
+    musicxml = models.TextField(blank=True, default='')
     frequency = models.IntegerField(default=0)
     probability = models.FloatField(default=0.0)
     chord = models.CharField(max_length=64, blank=True)
@@ -45,14 +45,6 @@ class Measure(models.Model):
 
     created_dt = models.DateTimeField(auto_now_add=True)
     modified_dt = models.DateTimeField(auto_now=True)
-
-class TuneMeasure(models.Model):
-    tune = models.ForeignKey('Tune')
-    measure = models.ForeignKey('Measure')
-    position = models.IntegerField()
-
-    class Meta:
-        unique_together = ('tune', 'measure', 'position')
 
 class MeasureBigram(models.Model):
     measure = models.ForeignKey('Measure', related_name='bigrams', blank=True, null=True)
