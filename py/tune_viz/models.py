@@ -20,6 +20,13 @@ class Tune(models.Model):
     def __str__(self):
         return self.raw_abc
 
+class Key(models.Model):
+    ACCIDENTALS = (('s', 'sharps'), ('f', 'flats'))
+
+    name = models.CharField(max_length=8)
+    accidentals = models.CharField(max_length=1, choices=ACCIDENTALS, default='s')
+    number_of_accidentals = models.IntegerField(default=0)
+
 class Metadata(models.Model):
     tune = models.ForeignKey("Tune")
     tag =  models.CharField(max_length=1)
