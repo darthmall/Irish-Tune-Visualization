@@ -27,6 +27,15 @@ class Key(models.Model):
     name = models.CharField(max_length=8)
     accidentals = models.CharField(max_length=1, choices=ACCIDENTALS, default='s')
     number_of_accidentals = models.IntegerField(default=0)
+    degree = models.IntegerField(null=True, blank=True)
+
+class PitchClass(models.Model):
+    tune = models.ForeignKey('Tune', related_name='pitches')
+    pitch = models.CharField(max_length=32)
+    count = models.IntegerField(default=0)
+
+    class Meta:
+        unique_together = ('tune', 'pitch')
 
 class Metadata(models.Model):
     tune = models.ForeignKey("Tune")

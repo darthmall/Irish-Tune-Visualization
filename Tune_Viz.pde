@@ -4,13 +4,23 @@ import java.util.Collections;
 PFont title_font;
 PFont label_font;
 PFont music_symbols;
+PFont console_font;
+
+boolean debug = false;
 
 PostgreSQL pgsql;
 
-float[] p_keysigs = new float[12];
-ArrayList[] p_key = new ArrayList[12];
+float total_tunes;
+KeySig[] keySignatures = new KeySig[12];
 
 final String TOTAL_SQL = "SELECT COUNT(id) from tune_viz_tune WHERE rhythm='jig'";
+
+final String FREQUENCIES_SQL = "select key.name, key.number_of_accidentals, key.accidentals, key.degree, count(tune.id)" +
+                   " from tune_viz_tune as tune" +
+                   " join tune_viz_key as key on (key.id = tune.key_id)" +
+                   " where tune.rhythm='jig'" +
+                   " group by key.name, key.number_of_accidentals, key.accidentals, key.degree" +
+                   " order by key.accidentals desc, key.number_of_accidentals, key.degree";
 
 final String FREQ_PER_SHARPS_SQL = "SELECT key.number_of_accidentals, count(tune.id)" +
                           " FROM tune_viz_tune AS tune" +
@@ -33,7 +43,7 @@ final String FREQ_PER_KEY_SQL = "SELECT key.name, count(tune.id)" +
 
 final int SCALE_FACTOR = 150;
 final float CENTER_R = 0.4;
-final float HSB_B = 0.7;
+final float HSB_B = 0.93;
 
 void setup() {
   size(600, 600);
@@ -41,53 +51,36 @@ void setup() {
   title_font = loadFont("GoudyStd-Bold-48.vlw");
   label_font = loadFont("GoudyStd-18.vlw");
   music_symbols = loadFont("Maestro-48.vlw");
+  console_font = loadFont("Anonymous-18.vlw");
 
   pgsql = new PostgreSQL(this, "localhost", "tunes", "esheehan", "");
   if (pgsql.connect()) {
-    float total = 0.0;
-    int total_keys = 0;
-    
-    // Initilialize the array of key signature probabilities
-    for (int i = 0; i < p_keysigs.length; i++) {
-      p_keysigs[i] = 0.0;
-    }
     
     // Find the total number of jigs for probability calculations
     pgsql.query(TOTAL_SQL);
     if (pgsql.next()) {
-      total = pgsql.getFloat(1);
-    }
-    
-    pgsql.query(FREQ_PER_SHARPS_SQL);
-    while (pgsql.next()) {
-      p_keysigs[pgsql.getInt(1)] = pgsql.getFloat(2);
-    }
-    
-    pgsql.query(FREQ_PER_FLATS_SQL);
-    while (pgsql.next()) {
-      p_keysigs[12 - pgsql.getInt(1)] = pgsql.getFloat(2);
+      total_tunes = pgsql.getFloat(1);
     }
 
-    for (int i = 0; i < p_keysigs.length; i++) {
-      String sql = String.format(FREQ_PER_KEY_SQL, (i < 7) ? "s" : "f", (i < 7) ? i : 12 - i);
-      pgsql.query(sql);
+    pgsql.query(FREQUENCIES_SQL);
+    while(pgsql.next()) {
+      String accidentals = pgsql.getString(3);
+      int signatureIdx = (accidentals.equals("s")) ? pgsql.getInt(2) : 12 - pgsql.getInt(2);
       
-      ArrayList key_list = new ArrayList();
-      while (pgsql.next()) {
-        key_list.add(pgsql.getFloat(2) / p_keysigs[i]);
+      println(String.format("%s %d ==> %d", accidentals, pgsql.getInt(2), signatureIdx));
+
+      if (keySignatures[signatureIdx] == null) {
+        keySignatures[signatureIdx] = new KeySig();
       }
       
-      p_key[i] = key_list;
-    }
-    
-    for (int i = 0; i < p_keysigs.length; i++) {
-      p_keysigs[i] = p_keysigs[i] / total;
+      keySignatures[signatureIdx].addKey(pgsql.getString(1), pgsql.getInt(4), pgsql.getInt(5));
     }
       
   } else {
     println("Failed to connect to tunes database");
   }
   
+  // Set up HSB color space so that we can equate radians to hues and probabilities to saturation and brightness.
   colorMode(HSB, 2*PI, 1.0, 1.0);
   smooth();
 }
@@ -101,7 +94,7 @@ void draw() {
   textFont(title_font);
   fill(0, 1, 0);
   textAlign(CENTER);
-  text("Key Distribution in Jigs", 0, -height/2 + 52);
+  text("Key Signatures of Jigs", 0, -height/2 + 52);
   
   textFont(music_symbols);
   textAlign(LEFT);
@@ -114,14 +107,40 @@ void draw() {
   
   rotate(-PI/2);
 
+  int section = -1;
+  float x = mouseX - (width / 2);
+  float y = mouseY - (height / 2);
+  float a = atan(y / x) + (PI/2) + (PI/12);
+  if (x == 0) {
+    if (mouseY > 0) {
+      section = 0;
+    } else {
+      section = 7;
+    }
+  } else {
+    section = floor(a * 6 / PI);
+    
+    if (x < 0) {
+      section = 6 + section;
+    }
+    
+    section = section % 12;
+  }
+  
   noStroke();
   pushMatrix();
   scale(SCALE_FACTOR);
   float theta = PI / 3;
-  for (int i = 0; i < p_keysigs.length; i++) {
-    drawStackedArc(p_key[i], p_keysigs[i], PI*pow(CENTER_R, 2)/12, theta);
+  for (int i = 0; i < keySignatures.length; i++) {
+    if (keySignatures[i] != null) {
+      drawStackedArc(keySignatures[i],
+                     PI*pow(CENTER_R, 2)/12,
+                     theta,
+                     HSB_B * ((i == section) ? 1.33 : 1));
+    }
+
     rotate(PI/6);
-    theta = (theta + (PI / 6)) % (2*PI);
+    theta = (theta + (PI/6)) % (2*PI);
   }
 
   fill(0, 0, 1);
@@ -131,22 +150,24 @@ void draw() {
   // Magic number rotation!
   rotate(PI/2);
   
-  int section = -1;
-  if (mouseX == 0) {
-    if (mouseY > 0) {
-      section = 0;
+  pushMatrix();
+  for (int i = 0; i < keySignatures.length; i++) {
+    if (i == section) {
+      fill(((PI / 3) + (i * PI / 6)) % (2 * PI), 1.0, HSB_B);
     } else {
-      section = 7;
+      fill(0, 0, 0.6);
     }
-  } else {
-    section = floor(atan(mouseY/mouseX) * 6 / PI);
-  }
-  
-  for (int i = 0; i < p_keysigs.length; i++) {
-    fill(0, 0, 0.6);
 
-    text(str((i < 7) ? i : p_keysigs.length - i), 0, (-CENTER_R * SCALE_FACTOR) + 21);
+    text(str((i < 7) ? i : keySignatures.length - i), 0, (-CENTER_R * SCALE_FACTOR) + 21);
     rotate(PI/6);
+  }
+  popMatrix();
+  
+  if (debug) {
+    textFont(console_font);
+    fill(0, 0, 0.6);
+    textAlign(LEFT);
+    text(String.format("(%d, %d); %f rad; section: %d", int(x), int(y), a, section), -width/2, height/2 - 4);
   }
 }
 
@@ -156,26 +177,71 @@ void keyPressed() {
       saveFrame(str(year()) + str(month()) + str(day()) + str(hour()) + str(minute()) + str(second()) + "-jig-keys.png");
       break;
       
+    case TAB:
+      debug = !debug;
+      break;
+      
     default:
       break;
   }
 }
 
-void drawStackedArc(ArrayList data, float totalArea, float offset, float hsb_hue) {
-  Collections.sort(data);
+void drawStackedArc(KeySig sig, float offset, float hsb_hue, float hsb_brightness) {
+  float totalArea = float(sig.total) / total_tunes;
   float area = totalArea + offset;
+
+  // Draw from the outside in...
+  for (int i = sig.keys.length - 1; i >= 0; i--) {
+    if (sig.keys[i] != null) {
+      // Calculate the radius of this arc based on the remaining area.
+      float r = sqrt(2 * area * (6 / PI));
   
-  // Iterate from largest to smallest, drawing each arc
-  for (int i = data.size() - 1; i >= 0; i--) {
-    // Calculate the radius of this arc based on the remaining area.
-    float r = sqrt(2 * area * (6 / PI));
-
-    // DRAW!
-    
-    fill(hsb_hue, (data.size() - float(i)) / data.size(), HSB_B);
-    arc(0, 0, r*2, r*2, -PI/12, PI/12);
-
-    // Lastly, subtract the area of this segment from the drawing area.
-    area -= ((Float) data.get(i)) * totalArea;
+      // DRAW!
+      fill(hsb_hue, (sig.keys.length - i) * (0.8 / sig.keys.length) + 0.1, hsb_brightness);
+      arc(0, 0, r*2, r*2, -PI/12, PI/12);
+  
+      // Lastly, subtract the area of this segment from the drawing area.
+      area -= (float(sig.keys[i].count) / float(sig.total)) * totalArea;
+    }
   }
+}
+
+protected class KeySig {
+  protected int total;
+  protected KeyBucket[] keys;
+  
+  public KeySig() {
+    keys = new KeyBucket[7];
+  }
+  
+  public void addKey(String keyName, int scaleDegree, int count) {
+    int index = scaleDegree - 1;
+
+    if (keys[index] == null) {
+      keys[index] = new KeyBucket(keyName);
+    }
+    
+    keys[index].count = count;
+    
+    // Recalculate the total number of tunes in this key signature.
+    total = 0;
+    for (int i = 0; i < keys.length; i++) {
+      if (keys[i] != null) {
+        total += keys[i].count;
+      }
+    }
+    
+  }
+  
+}
+
+protected class KeyBucket {
+  protected String name;
+  protected int count;
+  
+  public KeyBucket(String name) {
+    this.name = name;
+    this.count = 0;
+  }
+
 }
