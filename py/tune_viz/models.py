@@ -32,6 +32,7 @@ class Key(models.Model):
 class PitchClass(models.Model):
     tune = models.ForeignKey('Tune', related_name='pitches')
     pitch = models.CharField(max_length=32)
+    degree = models.IntegerField()
     count = models.IntegerField(default=0)
 
     class Meta:
