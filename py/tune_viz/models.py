@@ -15,6 +15,12 @@ class Tune(models.Model):
     raw_abc = models.TextField(blank=False, null=False)
     notation = models.CharField(max_length=1024, blank=True)
     source = models.CharField(max_length=255, blank=False, null=False, default="thessions.org")
+    
+    # jSymbolic features
+    melodicDirection = models.FloatField(blank=True, null=True)
+    melodicArcDuration = models.FloatField(blank=True, null=True)
+    melodicArcSize = models.FloatField(blank=True, null=True)
+    pitch_variety = models.FloatField(blank=True, null=True)
 
     created_dt = models.DateTimeField(auto_now_add=True)
 
