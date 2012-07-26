@@ -9,6 +9,7 @@ from argparse import ArgumentParser
 from music21.converter import parseData
 from progress_bar import ProgressBar
 from tune_viz.models import *
+import csv
 
 parser = ArgumentParser(description='Calculate variability positionally across tunes')
 parser.add_argument('-a', '--accidentals', dest='accidentals', type=int, default=2)
@@ -16,7 +17,11 @@ parser.add_argument('-t', '--type', dest='type', type=str, default='jig')
 parser.add_argument('-l', '--limit', dest='limit', type=int, default=100)
 args = parser.parse_args()
 
-tunes = Tune.objects.filter(rhythm=args.type, key__accidentals='s', key__number_of_accidentals=args.accidentals)[:args.limit]
+tunes = Tune.objects.filter(rhythm=args.type, key__accidentals='s', key__number_of_accidentals=args.accidentals)
+
+if args.limit > 0:
+    tunes = tunes[:args.limit]
+
 tune_count = tunes.count()
 
 progress = ProgressBar(tune_count)
@@ -41,19 +46,21 @@ for i, tune in enumerate(tunes.values_list('raw_abc', flat=True)):
             if note.isNote:
                 degree = key.getScaleDegreeFromPitch(note.pitch.name)
 
-            offset = (note.offset, degree)
-            beat = (note.beat, degree)
-
-            byOffset[offset] = byOffset.get(offset, 0) + 1
-            byBeat[beat] = byBeat.get(beat, 0) + 1
+            byOffset.setdefault(note.offset, []).append(degree)
+            byBeat.setdefault(note.beat, []).append(degree)
     except:
         errors += 1
-        raise
 
-print 'By Offset'
-for k, v in byOffset.iteritems():
-    print k, v
+print progress, '{: >5,d} / {: <5,d}'.format(i, tune_count), 'Errors: {}'.format(errors)
 
-print 'By Beat'
-for k, v in byBeat.iteritems():
-    print k, v
+with file('variation.beat.csv', 'wb') as datafile:
+    writer = csv.writer(datafile)
+
+    for beat, degrees in byBeat.iteritems():
+        writer.writerow([beat, len(set(degrees)), len(degrees)])
+
+with file('variation.offset.csv', 'wb') as datafile:
+    writer = csv.writer(datafile)
+
+    for offset, degrees in byOffset.iteritems():
+        writer.writerow([offset, len(set(degrees)), len(degrees)])

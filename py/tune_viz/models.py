@@ -16,11 +16,16 @@ class Tune(models.Model):
     notation = models.CharField(max_length=1024, blank=True)
     source = models.CharField(max_length=255, blank=False, null=False, default="thessions.org")
     
+    ambitus = models.FloatField(blank=True, null=True)
+
     # jSymbolic features
     melodicDirection = models.FloatField(blank=True, null=True)
     melodicArcDuration = models.FloatField(blank=True, null=True)
     melodicArcSize = models.FloatField(blank=True, null=True)
+    repeated_notes = models.FloatField(blank=True, null=True)
     pitch_variety = models.FloatField(blank=True, null=True)
+    common_pitch_prevelance = models.FloatField(blank=True, null=True)
+    num_common_pitches = models.FloatField(blank=True, null=True)
 
     created_dt = models.DateTimeField(auto_now_add=True)
 
