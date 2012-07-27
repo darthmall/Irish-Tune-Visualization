@@ -1,8 +1,9 @@
 class Tune {
-  String title;
+  String name;
   ArrayList<Note> notes;
   
-  Tune(String[] notes) {
+  Tune(String name, String[] notes) {
+    this.name = name;
     this.notes = new ArrayList<Note>();
     
     for (int i = 0; i < notes.length; i++) {

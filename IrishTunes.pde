@@ -10,7 +10,9 @@ int overIndex;
 ControlP5 controlP5;
 ControlWindow controlWindow;
 
-PostgreSQL sql;
+SQLite sql;
+
+PFont univers;
 
 float scaleX = 16.77;
 float scaleY = 4.6;
@@ -25,23 +27,27 @@ void setup() {
   tuneList = new ArrayList<String>();
   selected = new ArrayList<String>();
 
-  // Read in all the note data from the CSV for rendering the tunes on screen
-  try {
-    l = reader.readLine();
-    
-    while (l != null) {
-      String[] data = split(l, ",");
-      tunes.put(data[0], new Tune(subset(data, 1)));
-      l = reader.readLine();
-    }
-  } catch (IOException e) {
-    e.printStackTrace();
-    noLoop();
-  }
-  
-  sql = new PostgreSQL(this, "localhost", "tunes", "esheehan", "");
+  univers = loadFont("UniversLTStd-Cn-32.vlw");
+
+  sql = new SQLite(this, "tunes.db");
+
   if (sql.connect()) {
-  // Set up the controls for selecting the next tune.
+    // Read in all the note data from the CSV for rendering the tunes on screen
+    try {
+      l = reader.readLine();
+      
+      while (l != null) {
+        String[] data = split(l, ",");
+        String name = getTuneName(data[0]);
+        tunes.put(data[0], new Tune(name, subset(data, 1)));
+        l = reader.readLine();
+      }
+    } catch (IOException e) {
+      e.printStackTrace();
+      noLoop();
+    }
+
+    // Set up the controls for selecting the next tune.
     controlP5 = new ControlP5(this);
     controlWindow = controlP5.addControlWindow("Window Controls", 100, 100, 400, 200)
         .hideCoordinates()
@@ -92,9 +98,9 @@ void draw() {
 
     noStroke();
     if (i == overIndex) {
-      fill(106, 116, 125);
-    } else {
       fill(106, 116, 125, 64);
+    } else {
+      fill(106, 116, 125);
     }
     t.draw();
 
@@ -125,6 +131,13 @@ void draw() {
   }
   
   popMatrix();
+
+  if (overIndex > -1) {
+    fill(106, 116, 125);
+    textFont(univers);
+    textAlign(CENTER, CENTER);
+    text(tunes.get(tuneList.get(overIndex)).name, width/2, height/2);
+  }
 }
 
 void controlEvent(ControlEvent ev) {
