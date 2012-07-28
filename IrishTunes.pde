@@ -1,3 +1,5 @@
+import javax.sound.midi.*;
+
 import de.bezier.data.sql.*;
 
 import controlP5.*;
@@ -11,6 +13,8 @@ ControlP5 controlP5;
 ControlWindow controlWindow;
 
 SQLite sql;
+
+Sequencer sequencer;
 
 PFont univers;
 
@@ -27,6 +31,11 @@ void setup() {
   tuneList = new ArrayList<String>();
   selected = new ArrayList<String>();
 
+  try {
+    sequencer = MidiSystem.getSequencer();
+    sequencer.open();
+  } catch (Exception e) {}
+  
   univers = loadFont("UniversLTStd-Cn-32.vlw");
 
   sql = new SQLite(this, "tunes.db");
@@ -157,7 +166,33 @@ void mouseClicked() {
     String id = tuneList.get(overIndex);
     selected.add(id);
     updateTuneSelection(id);
+    loadMidi(id);
   }
+}
+
+void keyPressed() {
+  if (key == ' ') {
+    if (sequencer.isRunning()) {
+      sequencer.stop();
+    } else {
+      sequencer.start();
+    }
+  }
+}
+
+void loadMidi(String id) {
+  try {
+    File midiFile = new File(dataPath("midi/" + id + ".mid"));
+    Sequence sequence = MidiSystem.getSequence(midiFile);
+    sequencer.setSequence(sequence);
+
+    // Set up infinite looping!
+    sequencer.setLoopCount(Sequencer.LOOP_CONTINUOUSLY);
+    sequencer.setLoopStartPoint(0);
+    sequencer.setLoopEndPoint(-1);
+
+    sequencer.start();
+  } catch (Exception e) {}
 }
 
 void updateTuneSelection(String id) {
