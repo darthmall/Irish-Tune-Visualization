@@ -2,15 +2,10 @@ import javax.sound.midi.*;
 
 import de.bezier.data.sql.*;
 
-import controlP5.*;
-
 HashMap<String, Tune> tunes;
 ArrayList<String> tuneList;
 ArrayList<String> selected;
 int overIndex;
-
-ControlP5 controlP5;
-ControlWindow controlWindow;
 
 SQLite sql;
 
@@ -21,8 +16,6 @@ boolean paused = false;
 
 PFont univers;
 
-float scaleX = 16.77;
-float scaleY = 4.6;
 float noteHeight = 10.0;
 
 void setup() {
@@ -58,31 +51,6 @@ void setup() {
       e.printStackTrace();
       noLoop();
     }
-
-    // Set up the controls for selecting the next tune.
-    controlP5 = new ControlP5(this);
-    controlWindow = controlP5.addControlWindow("Window Controls", 100, 100, 400, 200)
-        .hideCoordinates()
-        .setBackground(color(40));
-    
-    controlP5.addSlider("scaleX")
-        .setRange(1, 20)
-        .setPosition(40, 40)
-        .setSize(200, 29)
-        .setValue(scaleX)
-        .setWindow(controlWindow);
-    controlP5.addSlider("scaleY")
-        .setRange(1, 20)
-        .setPosition(40, 79)
-        .setSize(200, 29)
-        .setValue(scaleY)
-        .setWindow(controlWindow);
-    controlP5.addSlider("noteHeight")
-        .setRange(1, 10)
-        .setPosition(40, 118)
-        .setSize(200, 29)
-        .setValue(noteHeight)
-        .setWindow(controlWindow);
     
     // Populate the list of tunes.
     updateTuneSelection(null);
@@ -102,7 +70,7 @@ void draw() {
   line(0, height * (4.0 / 5.0), width, height * (4.0 / 5.0));
 
   pushMatrix();
-  translate(0, height * (9.0 / 10.0));
+  translate(0, height * 0.9);
 
   overIndex = (mouseY > height * (4.0 / 5.0)) ? int(floor(mouseX / (width / tuneList.size()))) : -1;
 
@@ -129,11 +97,10 @@ void draw() {
   
   // Iterate over all selected tunes and draw them.
   pushMatrix();
-  translate(20, 0);
-  scale(scaleX, scaleY);
+  translate(20, height * 0.4);
   
-  for (int i = 0; i < selected.size(); i++) {
-
+  for (int i = selected.size() - 1; i >= 0; i--) {
+    String tuneId = selected.get(i);
 
     noStroke();
     
@@ -144,8 +111,17 @@ void draw() {
     }
 
     tunes.get(selected.get(i)).draw();
+
+    if (tuneId.equals(currentlyPlaying)) {
+      break;
+    }
   }
- 
+
+  if (tunes.size() > 0 && tuneList.size() > 0 && overIndex > -1) {
+    fill(106, 116, 125, 64);
+    tunes.get(tuneList.get(overIndex)).draw();
+  }
+
   popMatrix();
 
   if (overIndex > -1) {
@@ -172,18 +148,6 @@ void draw() {
   
   if (sequencer.isRunning()) {  
     playbackPos = sequencer.getTickPosition();
-  }
-}
-
-void controlEvent(ControlEvent ev) {
-  String name = ev.getName();
-  
-  if (name.equals("scaleX")) {
-    scaleX = ev.getValue();
-  } else if (name.equals("scaleY")) {
-    scaleY = ev.getValue();
-  } else if (name.equals("noteHeight")) {
-    noteHeight = ev.getValue();
   }
 }
 
