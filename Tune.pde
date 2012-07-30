@@ -19,11 +19,11 @@ class Tune {
     for (int i = 0; i < notes.size(); i++) {
       Note n = notes.get(i);
 
-      if (n.pitchSpace > 0) {
-        rect(offset, n.pitchSpace + noteHeight / 2.0, n.duration, noteHeight);
+      if (n.pitchSpace >= 0) {
+        rect(offset, -(((n.pitchSpace - 60.0) * noteHeight) - noteHeight / 2.0), (n.duration * noteHeight * 1.618), noteHeight);
       }
 
-      offset = offset + n.duration;
+      offset = offset + (n.duration * noteHeight * 1.618);
     }
     
     endShape();

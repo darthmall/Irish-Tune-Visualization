@@ -1,41 +1,55 @@
 #!/usr/bin/env python
-import sys
-sys.path.append('..')
-
-import os
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'tune_viz.settings')
 
 from argparse import ArgumentParser
 from music21 import converter
 from progress_bar import ProgressBar
-from tune_viz.models import *
-import csv
+import csv, sqlite3
+
+TUNE_COUNT_SQL = '''SELECT count(tune.id)
+    FROM tune
+    JOIN key on (key.id = tune.key_id)
+    WHERE tune.rhythm="jig"
+        AND key.accidentals="s"
+        AND key.number_of_accidentals=2
+'''
+
+TUNE_SQL = '''SELECT tune.id, tune.raw_abc
+    FROM tune
+    JOIN key on (key.id = tune.key_id)
+    WHERE tune.rhythm="jig"
+        AND key.accidentals="s"
+        AND key.number_of_accidentals=2
+'''
 
 parser = ArgumentParser(description="Convert notes in tunes to CSV")
-parser.add_argument('output', metavar='FILE', type=str)
+parser.add_argument('db', metavar='DATABASE', type=str)
+parser.add_argument('output', metavar='CSVFILE', type=str)
 
 args = parser.parse_args()
 
-tunes = Tune.objects.filter(rhythm='jig', key__accidentals='s', key__number_of_accidentals=2)
+conn = sqlite3.connect(args.db)
+c = conn.cursor()
 
-progress = ProgressBar(tunes.count())
+c.execute(TUNE_COUNT_SQL)
+tune_count = c.fetchone()[0]
+
+progress = ProgressBar(tune_count)
 progress.width = 80
-
 
 with file(args.output, 'wb') as output:
     writer = csv.writer(output)
 
-    for i, tune in enumerate(tunes.values('id', 'raw_abc')):
+    for i, (tuneId, abc) in enumerate(c.execute(TUNE_SQL)):
         progress.update_time(i)
         print progress, chr(27) + '[A'
 
         try:
-            score = converter.parseData(tune['raw_abc'], format='abc')
-            row = [tune['id']]
+            score = converter.parseData(abc, format='abc')
+            row = [tuneId]
 
             for note in score.flat.notesAndRests:
                 duration = note.quarterLength
-                ps = 0
+                ps = -1
 
                 if note.isNote:
                     ps = note.ps

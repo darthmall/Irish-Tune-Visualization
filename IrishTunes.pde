@@ -15,12 +15,15 @@ ControlWindow controlWindow;
 SQLite sql;
 
 Sequencer sequencer;
+long playbackPos = 0;
+String currentlyPlaying;
+boolean paused = false;
 
 PFont univers;
 
 float scaleX = 16.77;
 float scaleY = 4.6;
-float noteHeight = 1.0;
+float noteHeight = 10.0;
 
 void setup() {
   size(1024, 768);
@@ -94,16 +97,20 @@ void setup() {
 void draw() {
   background(255);
 
+  // FIXME: Debuggative line to make sure we're drawing things in the right place
+  stroke(0);
+  line(0, height * (4.0 / 5.0), width, height * (4.0 / 5.0));
+
   pushMatrix();
-  translate(0, height * 0.5);
-  
-  overIndex = (mouseY > height / 2) ? int(floor(mouseX / (width / tuneList.size()))) : -1;
+  translate(0, height * (9.0 / 10.0));
+
+  overIndex = (mouseY > height * (4.0 / 5.0)) ? int(floor(mouseX / (width / tuneList.size()))) : -1;
 
   for (int i = 0; i < tuneList.size(); i++) {
     Tune t = tunes.get(tuneList.get(i));
 
     pushMatrix();
-    scale((width / tuneList.size()) / t.getWidth());
+    scale(1.0 / tuneList.size());
 
     noStroke();
     if (i == overIndex) {
@@ -138,7 +145,7 @@ void draw() {
 
     tunes.get(selected.get(i)).draw();
   }
-  
+ 
   popMatrix();
 
   if (overIndex > -1) {
@@ -146,6 +153,25 @@ void draw() {
     textFont(univers);
     textAlign(CENTER, CENTER);
     text(tunes.get(tuneList.get(overIndex)).name, width/2, height/2);
+  }
+
+  // Manually handle looping the sequence. If we've reached the end and
+  // a new sequence has been selected, start that new sequence. Otherwise
+  // loop the current one.
+  if (!paused && !sequencer.isRunning() && selected.size() > 0) {
+    String id = selected.get(selected.size() - 1);
+    println(id);
+    if (id.equals(currentlyPlaying)) {
+      println("start");
+      sequencer.setTickPosition(0);
+      sequencer.start();
+    } else {
+      loadMidi(selected.get(selected.size() - 1));
+    }
+  }
+  
+  if (sequencer.isRunning()) {  
+    playbackPos = sequencer.getTickPosition();
   }
 }
 
@@ -166,15 +192,17 @@ void mouseClicked() {
     String id = tuneList.get(overIndex);
     selected.add(id);
     updateTuneSelection(id);
-    loadMidi(id);
   }
 }
 
 void keyPressed() {
   if (key == ' ') {
     if (sequencer.isRunning()) {
+      paused = true;
       sequencer.stop();
     } else {
+      paused = false;
+      sequencer.setTickPosition(playbackPos);
       sequencer.start();
     }
   }
@@ -185,11 +213,7 @@ void loadMidi(String id) {
     File midiFile = new File(dataPath("midi/" + id + ".mid"));
     Sequence sequence = MidiSystem.getSequence(midiFile);
     sequencer.setSequence(sequence);
-
-    // Set up infinite looping!
-    sequencer.setLoopCount(Sequencer.LOOP_CONTINUOUSLY);
-    sequencer.setLoopStartPoint(0);
-    sequencer.setLoopEndPoint(-1);
+    currentlyPlaying = id;
 
     sequencer.start();
   } catch (Exception e) {}
