@@ -136,9 +136,8 @@ void draw() {
   // loop the current one.
   if (!paused && !sequencer.isRunning() && selected.size() > 0) {
     String id = selected.get(selected.size() - 1);
-    println(id);
+
     if (id.equals(currentlyPlaying)) {
-      println("start");
       sequencer.setTickPosition(0);
       sequencer.start();
     } else {
